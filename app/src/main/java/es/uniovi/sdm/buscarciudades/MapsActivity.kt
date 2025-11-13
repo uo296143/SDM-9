@@ -1,5 +1,6 @@
 package es.uniovi.sdm.buscarciudades
 
+import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
@@ -10,12 +11,17 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CircleOptions
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.PolylineOptions
 import es.uniovi.sdm.buscarciudades.data.GestorCiudades
 import es.uniovi.sdm.buscarciudades.data.Resultados
 import es.uniovi.sdm.buscarciudades.databinding.ActivityMapsBinding
+import java.util.stream.IntStream.range
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -28,6 +34,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private val res= Resultados()
 
     private lateinit var posCiudad: LatLng
+    private var marcadorUsuario: Marker?= null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,21 +73,38 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap = googleMap
 
         // Add a marker in Sydney and move the camera
-        val valdesSalas= LatLng(43.355115, -5.851297)
-        mMap.addMarker(MarkerOptions().position(valdesSalas).title("Marker in Sydney"))
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(valdesSalas))
+        //val valdesSalas= LatLng(43.355115, -5.851297)
+        //mMap.addMarker(MarkerOptions().position(valdesSalas).title("Marker in Sydney"))
+        //mMap.moveCamera(CameraUpdateFactory.newLatLng(valdesSalas))
         // Mueve la cámara instantáneamente a Oviedo con zoom 15
 
-
+        // mMap.uiSettings.isZoomControlsEnabled = true
+        mMap.uiSettings.isZoomGesturesEnabled =false
+        mMap.uiSettings.isScrollGesturesEnabled = false
         setUpMap();
+        setEvent()
+    }
+
+    private fun setEvent() {
+        mMap.setOnMapClickListener { punto ->
+            marcadorUsuario?.remove()
+            // Crea un marcador en el punto y lo añade al mapa
+            val marcadorOpciones = MarkerOptions()
+                .position(punto)
+                .title("Marcador creado por el usuario")
+            marcadorUsuario = mMap.addMarker(marcadorOpciones)
+
+        }
     }
 
     private fun setUpMap(){
-        val peninsulaBounds = LatLngBounds(LatLng(35.459427, -11.237659),LatLng(44.0, 3.5) );
+        val peninsulaBounds = LatLngBounds(LatLng(35.5, -10.0),LatLng(44.0, 3.5) );
         // mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(peninsulaBounds, 15f))
         // Zoom para visualizar un rectángulo definido por las esquinas
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(peninsulaBounds, 1080,
         1080, 0))
+        mMap.mapType = GoogleMap.MAP_TYPE_SATELLITE
+        siguienteCiudad()
     }
 
     private fun siguienteCiudad() {
@@ -116,7 +140,43 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         res.reiniciaPuntos()
     }
 	
-	fun onClickAceptar() {}
-    fun onClickSiguiente() {}
+	fun onClickAceptar() {
+        var radio:Double = 50000.0
+        mMap.addMarker(MarkerOptions()
+            .position(posCiudad)
+            .icon(BitmapDescriptorFactory.fromResource(R.drawable.estrella32r))
+            .title(binding.campoCiudad.text.toString()))
+
+        val colores = listOf(0xFF0000FF, 0xFFFF0000, 0xFF00FF00)
+        for(i in range(0,3) ){
+            mMap.addCircle(
+                CircleOptions().center(posCiudad)
+                .radius(radio))
+                //.strokeColor(colores[i-1].toInt())
+                //.fillColor(0x0F00FF00)
+
+            radio = radio * 2
+        }
+
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(posCiudad, 6.7f))
+
+        mMap.addPolyline(
+            PolylineOptions()
+                .add(posCiudad)
+                .add(marcadorUsuario!!.position)
+            )
+
+        val resultado = FloatArray(1)
+
+        Location.distanceBetween(posCiudad.latitude, posCiudad.longitude, marcadorUsuario!!.position.latitude, marcadorUsuario!!.position.longitude,
+            resultado)
+
+        res.addPuntos(resultado[0])
+    }
+    fun onClickSiguiente() {
+        mMap.clear()
+        siguienteCiudad()
+        setUpMap()
+    }
 
 }
